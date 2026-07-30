@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Parfumerie | 高级香水美学空间</title>
+    <!-- 引入 Tailwind CSS 让界面瞬间变得高级 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Noto+Serif+SC:wght@300;400;600&display=swap');
+        body { font-family: 'Noto Serif SC', 'Playfair Display', serif; }
+    </style>
+</head>
+<body class="bg-[#faf9f6] text-stone-800">
+
+    <!-- 导航栏 -->
+    <header class="sticky top-0 z-50 bg-[#faf9f6]/90 backdrop-blur border-b border-stone-200 py-4 px-8 flex justify-between items-center">
+        <h1 class="text-xl tracking-widest font-semibold uppercase">AURA PARFUMERIE</h1>
+        <nav class="space-x-8 text-sm tracking-widest hidden md:block">
+            <a href="#" class="hover:text-stone-500 transition">探索香调</a>
+            <a href="#" class="hover:text-stone-500 transition">限时礼盒</a>
+            <a href="#" class="hover:text-stone-500 transition">品牌故事</a>
+        </nav>
+    </header>
+
+    <!-- 自动轮播栏 (Auto Carousel) -->
+    <section class="relative w-full h-[450px] overflow-hidden bg-stone-900">
+        <div id="carousel-container" class="w-full h-full relative">
+            <!-- 轮播图由 JS 动态注入 -->
+        </div>
+        <!-- 轮播指示器圆点 -->
+        <div id="carousel-dots" class="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-10"></div>
+    </section>
+
+    <!-- 主体商品区 -->
+    <main class="max-w-7xl mx-auto px-6 py-16">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-light tracking-wide mb-2">精选气味系列</h2>
+            <p class="text-stone-500 text-sm tracking-wider">FIND YOUR SIGNATURE SCENT</p>
+        </div>
+
+        <!-- 香水商品网格 -->
+        <div id="perfume-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+            <!-- 商品卡片由 JS 动态加载 -->
+        </div>
+    </main>
+
+    <!-- 下单弹窗模态框 -->
+    <div id="order-modal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white p-8 rounded-lg max-w-md w-full relative shadow-2xl">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-stone-400 hover:text-stone-800 text-xl">&times;</button>
+            <h3 class="text-2xl font-light mb-1">确认您的订单</h3>
+            <p id="modal-perfume-name" class="text-stone-500 text-sm mb-6"></p>
+            
+            <form id="order-form" onsubmit="submitOrder(event)" class="space-y-4">
+                <input type="hidden" id="modal-perfume-id">
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-stone-600 mb-1">收货人姓名</label>
+                    <input type="text" id="customer_name" required class="w-full border border-stone-300 p-2.5 text-sm rounded focus:outline-none focus:border-stone-800">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-stone-600 mb-1">电子邮箱</label>
+                    <input type="email" id="customer_email" required class="w-full border border-stone-300 p-2.5 text-sm rounded focus:outline-none focus:border-stone-800">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-stone-600 mb-1">收货详细地址</label>
+                    <textarea id="address" required rows="3" class="w-full border border-stone-300 p-2.5 text-sm rounded focus:outline-none focus:border-stone-800"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-stone-900 text-white py-3 text-sm tracking-widest uppercase rounded hover:bg-stone-800 transition">立即提交订单</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 前端交互与轮播脚本 -->
+    <script>
+        let currentSlide = 0;
+        let bannersData = [];
+        let slideInterval;
+
+        // 1. 初始化加载轮播图与商品
+        window.addEventListener('DOMContentLoaded', () => {
+            loadBanners();
+            loadPerfumes();
+        });
+
+        // 异步加载轮播图
+        async function loadBanners() {
+            try {
+                const res = await fetch('/api/banners');
+                bannersData = await res.json();
+                renderCarousel();
+                startAutoSlide();
+            } catch (e) {
+                console.error("加载轮播图失败", e);
+            }
+        }
+
+        // 渲染轮播图 HTML
+        function renderCarousel() {
+            const container = document.getElementById('carousel-container');
+            const dotsContainer = document.getElementById('carousel-dots');
+            
+            container.innerHTML = bannersData.map((banner, index) => `
+                <div class="absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === 0 ? 'opacity-100' : 'opacity-0'}" data-slide="${index}">
+                    <img src="${banner.image}" class="w-full h-full object-cover opacity-75" alt="${banner.title}">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-12 text-white">
+                        <span class="text-xs uppercase tracking-widest text-stone-300 mb-2">${banner.subtitle}</span>
+                        <h2 class="text-4xl font-light tracking-wide">${banner.title}</h2>
+                    </div>
+                </div>
+            `).join('');
+
+            dotsContainer.innerHTML = bannersData.map((_, index) => `
+                <button onclick="goToSlide(${index})" class="w-2.5 h-2.5 rounded-full transition-all ${index === 0 ? 'bg-white w-6' : 'bg-white/50'}"></button>
+            `).join('');
+        }
+
+        // 切换幻灯片逻辑
+        function goToSlide(index) {
+            currentSlide = index;
+            const slides = document.querySelectorAll('#carousel-container > div');
+            const dots = document.querySelectorAll('#carousel-dots > button');
+
+            slides.forEach((slide, i) => {
+                slide.classList.toggle('opacity-100', i === currentSlide);
+                slide.classList.toggle('opacity-0', i !== currentSlide);
+            });
+
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('bg-white', i === currentSlide);
+                dot.classList.toggle('w-6', i === currentSlide);
+                dot.classList.toggle('bg-white/50', i !== currentSlide);
+                dot.classList.toggle('w-2.5', i !== currentSlide);
+            });
+        }
+
+        // 自动轮播计时器 (每4秒切一次)
+        function startAutoSlide() {
+            slideInterval = setInterval(() => {
+                currentSlide = (currentSlide + 1) % bannersData.length;
+                goToSlide(currentSlide);
+            }, 4000);
+        }
+
+        // 2. 异步加载香水列表
+        async function loadPerfumes() {
+            try {
+                const res = await fetch('/api/perfumes');
+                const perfumes = await res.json();
+                const grid = document.getElementById('perfume-grid');
+                
+                if (perfumes.length === 0) {
+                    grid.innerHTML = `<p class="col-span-3 text-center text-stone-400">暂无上架香水，请先在数据库添加。</p>`;
+                    return;
+                }
+
+                grid.innerHTML = perfumes.map(p => `
+                    <div class="bg-white rounded p-4 shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col justify-between">
+                        <div>
+                            <div class="h-64 bg-stone-100 mb-4 overflow-hidden rounded">
+                                <img src="${p.image_url || 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?q=80&w=600&auto=format&fit=crop'}" class="w-full h-full object-cover hover:scale-105 transition duration-500" alt="${p.name}">
+                            </div>
+                            <span class="text-xs uppercase tracking-widest text-stone-400">${p.brand} · ${p.volume || '50ml'}</span>
+                            <h3 class="text-lg font-normal text-stone-800 mt-1">${p.name}</h3>
+                            <p class="text-stone-500 text-xs mt-2 line-clamp-2">${p.description || '暂无香调说明'}</p>
+                        </div>
+                        <div class="mt-6 flex items-center justify-between pt-4 border-t border-stone-100">
+                            <span class="text-lg font-medium text-stone-900">¥${p.price}</span>
+                            <button onclick="openModal(${p.id}, '${p.name}', ${p.price})" class="bg-stone-900 text-white px-4 py-2 text-xs tracking-widest uppercase rounded hover:bg-stone-800 transition">立即购买</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error("加载香水失败", e);
+            }
+        }
+
+        // 3. 弹窗控制
+        function openModal(id, name, price) {
+            document.getElementById('modal-perfume-id').value = id;
+            document.getElementById('modal-perfume-name').innerText = `${name} - ¥${price}`;
+            document.getElementById('order-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('order-modal').classList.add('hidden');
+        }
+
+        // 4. 提交订单
+        async function submitOrder(e) {
+            e.preventDefault();
+            const orderData = {
+                perfume_id: parseInt(document.getElementById('modal-perfume-id').value),
+                customer_name: document.getElementById('customer_name').value,
+                customer_email: document.getElementById('customer_email').value,
+                address: document.getElementById('address').value
+            };
+
+            try {
+                const res = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert(`下单成功！您的订单号为: ${result.order_id}`);
+                    closeModal();
+                    loadPerfumes(); // 刷新库存
+                } else {
+                    alert(`下单失败: ${result.detail}`);
+                }
+            } catch (err) {
+                alert("网络错误，请稍后再试");
+            }
+        }
+    </script>
+</body>
+</html>
